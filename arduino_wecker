@@ -1,0 +1,204 @@
+/*
+ * TimeZones.ino
+ * example code illustrating time synced from a DCF77 receiver
+ * Thijs Elenbaas, 2012
+ * This example code is in the public domain.
+
+  This example shows how to fetch a DCF77 time and synchronize
+  the internal clock. In order for this example to give clear output,
+  make sure that you disable logging  from the DCF library. You can 
+  do this by commenting out   #define VERBOSE_DEBUG 1   in Utils.cpp. 
+ */
+ 
+ 
+ // include the library code:
+#include <LiquidCrystal.h>
+
+// initialize the library with the numbers of the interface pins
+// Achtung Pin 3 darf nicht benutzt werden wegen IRQ ; abhängig vom Arduino Typ.
+
+LiquidCrystal lcd(12, 11, 5, 4, 1, 2);
+
+ 
+#define DCF_PIN 3	         // Connection pin to DCF 77 device
+#define DCF_INTERRUPT 0	          // Interrupt number associated with pin
+
+// Pin 13 has an LED connected on most Arduino boards.
+// give it a name:
+int led = 7;
+int  stunde = 0;     // alarm hour stored in this variable
+int  minuten = 0;
+int value;
+int endlos = 0;
+int ergebnis;
+int teilung;
+
+#include <EEPROM.h>
+#include <DCF77.h>       //https://github.com/thijse/Arduino-Libraries/downloads
+#include <Time.h>        //http://www.arduino.cc/playground/Code/Time
+#include <Timezone.h>    //https://github.com/JChristensen/Timezone
+
+
+
+// #include <utility/w5100.h>
+
+	
+
+// more time zones, see  http://en.wikipedia.org/wiki/Time_zones_of_Europe
+//United Kingdom (London, Belfast)
+TimeChangeRule rBST = {"BST", Last, Sun, Mar, 1, 60};        //British Summer Time
+TimeChangeRule rGMT = {"GMT", Last, Sun, Oct, 2, 0};         //Standard Time
+Timezone UK(rBST, rGMT);
+
+//Eastern European Time (Finland, Greece, etc)
+TimeChangeRule rEST = {"EST", Last, Sun, Mar, 1, 180};      //Eastern European Time
+TimeChangeRule rEET = {"EET", Last, Sun, Oct, 1, 120};      //Eastern European Summer Time
+Timezone EET(rEST, rEET);
+
+//Central European Time (Germany)
+TimeChangeRule rCEST = {"CEST", Last, Sun, Mar, 2, 120};      //Central European Summer Time
+TimeChangeRule rCET = {"CET", Last, Sun, Oct, 3, 60};      //Central European Time
+Timezone CE(rCEST, rCET);
+
+
+
+time_t prevDisplay = 0;          // when the digital clock was displayed
+time_t time;
+DCF77 DCF = DCF77(DCF_PIN,DCF_INTERRUPT);
+
+
+void setup() {
+  
+  
+ // Hier kommt das LCD-Display
+ // set up the LCD's number of columns and rows: 
+  lcd.begin(16, 2);
+  // Print a message to the LCD.
+  lcd.print("hello, world!"); 
+  
+  
+  
+  
+  pinMode(led, OUTPUT);
+  
+  Serial.begin(9600); 
+  DCF.Start();
+  setSyncInterval(30);
+  setSyncProvider(getDCFTime);
+  // It is also possible to directly use DCF.getTime, but this function gives a bit of feedback
+  //setSyncProvider(DCF.getTime);
+
+ // Serial.println("Waiting for DCF77 UK local time ... ");
+ // Serial.println("It will take at least 2 minutes until a first update can be processed.");
+ 
+Serial.println("du musst Stunden und Minuten angeben"); 
+stunde = EEPROM.read(0);
+Serial.println(stunde);
+minuten = EEPROM.read(1);
+Serial.println(minuten);
+Serial.println("du musst Stunden angeben");
+stunde = zeiteingabe(stunde,0);
+Serial.println("du musst Minuten angeben"); 
+minuten = zeiteingabe(minuten,1);
+
+
+Serial.println("Warten auf das DCF77 für Deutschland ... ");
+Serial.println("Es dauert mindestens 2 Minuten bis eine Uhrzeit angezeigt wird.");
+ 
+  while(timeStatus()== timeNotSet) { 
+     // wait until the time is set by the sync provider     
+     Serial.print(".");
+     delay(2000);
+  }
+}
+
+
+void loop()
+{  
+  
+  //LCD-Display
+  // set the cursor to column 0, line 1
+  // (note: line 1 is the second row, since counting begins with 0):
+  lcd.setCursor(0, 1);
+  // print the number of seconds since reset:
+  lcd.print(millis()/1000);
+  
+  
+  if(hour() == stunde && minute() == minuten)
+  {
+   digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
+  }
+else
+  {
+  digitalWrite(led, LOW);    // turn the LED off by making the voltage LOW
+  }  
+  
+  if( now() != prevDisplay) //update the display only if the time has changed
+  {
+    prevDisplay = now();
+    digitalClockDisplay();  
+  }
+}
+
+void digitalClockDisplay(){
+  // digital clock display of the time
+  Serial.println("");
+  Serial.print(hour());
+  printDigits(minute());
+  printDigits(second());
+  Serial.print(" ");
+  Serial.print(day());
+  Serial.print(" ");
+  Serial.print(month());
+  Serial.print(" ");
+  Serial.print(year()); 
+  Serial.println(); 
+}
+
+void printDigits(int digits){
+  // utility function for digital clock display: prints preceding colon and leading 0
+  Serial.print(":");
+  if(digits < 10)
+    Serial.print('0');
+  Serial.print(digits);
+}
+
+unsigned long getDCFTime()
+{ 
+  time_t DCFtime = DCF.getUTCTime(); // Convert from UTC
+  
+  if (DCFtime!=0) {
+    Serial.print("X");    // Indicator that a time check is done
+    time_t LocalTime = CE.toLocal(DCFtime);
+    return LocalTime;
+  }
+  return 0;
+}
+
+// Da kommt die Funktion für die Zeiteingabe
+
+int zeiteingabe (int zeit , int teilung)
+
+{
+while(endlos == 0)
+ {
+if( Serial.available())
+   {
+    char ch = Serial.read();
+    if(ch >= '0' && ch <= '9') // is this an ascii digit between 0 and 9?
+    {
+       value = (value * 10) + (ch - '0'); // yes, accumulate the value
+    }
+    else if (ch == 10)  // is the character the newline character
+    {
+       zeit = value;  // set blinkrate to the accumulated value
+       Serial.println(zeit);
+       EEPROM.write(teilung, zeit);
+       ergebnis=zeit;
+       value = 0; // reset val to 0 ready for the next sequence of digits
+       break;
+    }
+  }
+ }
+return ergebnis;
+}
