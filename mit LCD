@@ -1,4 +1,5 @@
-/*
+/*Version wecker4_lcd
+
  * TimeZones.ino
  * example code illustrating time synced from a DCF77 receiver
  * Thijs Elenbaas, 2012
@@ -89,12 +90,15 @@ minuten = EEPROM.read(1);
 
 
 //serielle Eingabe Anfang
+ 
+     // while (!Serial) {
+   //in 30 Sekunden sollte eine Verbindung aufgebaut sein
+   //wenn nicht, dann betrieb mit Netzteil   
+        delay (30000);
+      //  break;
+     //; // ;wait for serial port to connect. Needed for Leonardo only
+   // }
 
-     while (!Serial) {
-    ; // ;wait for serial port to connect. Needed for Leonardo only
-     }
- // Serial.println("Waiting for DCF77 UK local time ... ");
- // Serial.println("It will take at least 2 minutes until a first update can be processed.");
 Serial.print("Nerdwecker:");
 Serial.println("Aktuelle Weckzeit"); 
 
@@ -104,11 +108,14 @@ Serial.print(":");
 Serial.print((minuten),DEC);
 Serial.print(" Uhr. ");
 
+
+if( Serial )
+   {
 Serial.println("neuer Alarm Stunde angeben");
 stunde = zeiteingabe(0,stunde);
 Serial.println("neuer Alarm Minute angeben");
 minuten = zeiteingabe(1,minuten);
-
+}
 // Hier kommt das LCD-Display nach der Weckkzeit-Änderung
   
   lcd.begin(16, 2);
@@ -133,16 +140,7 @@ minuten = zeiteingabe(1,minuten);
 //serielle Eingabe-Ende
 
 void loop()
-{  
-  
-  //LCD-Display
-  // set the cursor to column 0, line 1
-  // (note: line 1 is the second row, since counting begins with 0):
-  lcd.setCursor(0, 1);
-  // print the number of seconds since reset:
-  lcd.print(millis()/1000);
-  
-  
+{    
   if(hour() == stunde && minute() == minuten)
   {
    digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
@@ -161,8 +159,10 @@ else
 
 void digitalClockDisplay(){
   // digital clock display of the time
+  lcd.setCursor(0, 1);
   Serial.println("");
   Serial.print(hour());
+  lcd.print(hour());
   printDigits(minute());
   printDigits(second());
   Serial.print(" ");
@@ -177,9 +177,14 @@ void digitalClockDisplay(){
 void printDigits(int digits){
   // utility function for digital clock display: prints preceding colon and leading 0
   Serial.print(":");
+  lcd.print(":");
   if(digits < 10)
+  {
     Serial.print('0');
+    lcd.print('0');
+  }
   Serial.print(digits);
+  lcd.print(digits);
 }
 
 unsigned long getDCFTime()
@@ -221,6 +226,7 @@ if( Serial.available())
        break;
     }
   }
+ 
  }
 return ergebnis;
 }
