@@ -1,4 +1,4 @@
-/*Version wecker4_lcd
+/*Version wecker6_lcd
 
  * TimeZones.ino
  * example code illustrating time synced from a DCF77 receiver
@@ -87,17 +87,13 @@ minuten = EEPROM.read(1);
   lcd.print(":");
   lcd.print(minuten);
 
-
-
 //serielle Eingabe Anfang
  
-     // while (!Serial) {
+ 
    //in 30 Sekunden sollte eine Verbindung aufgebaut sein
-   //wenn nicht, dann betrieb mit Netzteil   
+   //wenn nicht, dann Betrieb mit Netzteil   
         delay (30000);
-      //  break;
-     //; // ;wait for serial port to connect. Needed for Leonardo only
-   // }
+    
 
 Serial.print("Nerdwecker:");
 Serial.println("Aktuelle Weckzeit"); 
@@ -108,7 +104,7 @@ Serial.print(":");
 Serial.print((minuten),DEC);
 Serial.print(" Uhr. ");
 
-
+  // Wenn nicht serial dann überspringe Input
 if( Serial )
    {
 Serial.println("neuer Alarm Stunde angeben");
@@ -116,17 +112,14 @@ stunde = zeiteingabe(0,stunde);
 Serial.println("neuer Alarm Minute angeben");
 minuten = zeiteingabe(1,minuten);
 }
+Serial.println("neuer Alarm :"); 
+
 // Hier kommt das LCD-Display nach der Weckkzeit-Änderung
-  
   lcd.begin(16, 2);
   lcd.setCursor(0,0);
   lcd.print("Alarm:"); 
-  lcd.print(stunde);
-  lcd.print(":");
-  lcd.print(minuten);
-
-
-
+  printDigits_h(stunde);
+  printDigits(minuten);
 
   Serial.println("Warten auf das DCF77 fuer Deutschland ... ");
   Serial.println("Es dauert mindestens 2 Minuten bis eine Uhrzeit angezeigt wird.");
@@ -161,8 +154,7 @@ void digitalClockDisplay(){
   // digital clock display of the time
   lcd.setCursor(0, 1);
   Serial.println("");
-  Serial.print(hour());
-  lcd.print(hour());
+  printDigits_h(hour());
   printDigits(minute());
   printDigits(second());
   Serial.print(" ");
@@ -179,6 +171,17 @@ void printDigits(int digits){
   Serial.print(":");
   lcd.print(":");
   if(digits < 10)
+  {
+    Serial.print('0');
+    lcd.print('0');
+  }
+  Serial.print(digits);
+  lcd.print(digits);
+}
+
+void printDigits_h(int digits){
+  // utility function for digital clock display: prints preceding  leading 0. Bei Stunden ohnr :
+    if(digits < 10)
   {
     Serial.print('0');
     lcd.print('0');
